@@ -1,0 +1,25 @@
+{
+  "n_images": 7200,
+  "class_counts": {
+    "glioma": 1800,
+    "meningioma": 1800,
+    "notumor": 1800,
+    "pituitary": 1800
+  },
+  "image_width_range": [
+    150,
+    1375
+  ],
+  "image_height_range": [
+    167,
+    1446
+  ],
+  "near_duplicate_threshold_bits": 5,
+  "near_duplicate_pairs_total": 4105094,
+  "near_duplicate_pairs_same_class": 1228619,
+  "near_duplicate_pairs_cross_class": 2876475,
+  "exact_hash_matches": 72308,
+  "pairs_split_across_folds": 3285547,
+  "images_with_cross_fold_near_duplicate": 7097,
+  "images_with_cross_fold_near_duplicate_pct": 98.569
+}
