@@ -41,7 +41,7 @@ ENV/
 *.fls
 *.fdb_latexmk
 *.synctex.gz
-*.log
+
 !step_6_backbone_sweep_logs.log
 
 # Model / experiment artifacts

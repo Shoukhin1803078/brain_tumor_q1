@@ -1,0 +1,102 @@
+RRF-Net | variant=rrf_full@v2_vitfix | split_mode=image
+Found 7200 images across 4 classes
+  glioma: 1800
+  meningioma: 1800
+  notumor: 1800
+  pituitary: 1800
+
+Loading + preprocessing images...
+  processed 1000/7200
+  processed 2000/7200
+  processed 3000/7200
+  processed 4000/7200
+  processed 5000/7200
+  processed 6000/7200
+  processed 7000/7200
+  processed 7200/7200
+
+======================================================================
+RRF-Net [rrf_full@v2_vitfix/image] -- FOLD 1/5
+======================================================================
+Train: 4896  Val: 864  Test: 1440
+Epoch 1/5
+306/306 - 138s - 449ms/step - accuracy: 0.7951 - loss: 0.6578 - route_loss: 0.7158 - val_accuracy: 0.8229 - val_loss: 0.5336 - val_route_loss: 0.6655
+Epoch 2/5
+306/306 - 82s - 268ms/step - accuracy: 0.8595 - loss: 0.4290 - route_loss: 0.6330 - val_accuracy: 0.6019 - val_loss: 1.3155 - val_route_loss: 0.7152
+Epoch 3/5
+306/306 - 81s - 266ms/step - accuracy: 0.8685 - loss: 0.3811 - route_loss: 0.6393 - val_accuracy: 0.8391 - val_loss: 0.4848 - val_route_loss: 0.6246
+Epoch 4/5
+306/306 - 81s - 266ms/step - accuracy: 0.8967 - loss: 0.3354 - route_loss: 0.6148 - val_accuracy: 0.8009 - val_loss: 0.5613 - val_route_loss: 0.6343
+Epoch 5/5
+306/306 - 82s - 267ms/step - accuracy: 0.8979 - loss: 0.3276 - route_loss: 0.5819 - val_accuracy: 0.8588 - val_loss: 0.4579 - val_route_loss: 0.7140
+[vit] 3 weighted layers nested in 'vit_b16_kerashub':
+    vi_t_backbone                                      ViTBackbone
+    vit_patching_and_embedding                         ViTPatchingAndEmbedding
+    vit_encoder                                        ViTEncoder
+[vit] strategy=tail-fraction  1/3 weighted layers trainable  (85,056,000 params)
+Epoch 1/18
+306/306 - 340s - 1s/step - accuracy: 0.9367 - loss: 0.2356 - route_loss: 0.5080 - val_accuracy: 0.9329 - val_loss: 0.2627 - val_route_loss: 0.5326 - learning_rate: 1.0000e-05
+Epoch 2/18
+306/306 - 233s - 761ms/step - accuracy: 0.9581 - loss: 0.1761 - route_loss: 0.4165 - val_accuracy: 0.9606 - val_loss: 0.1867 - val_route_loss: 0.3513 - learning_rate: 1.0000e-05
+Epoch 3/18
+306/306 - 233s - 761ms/step - accuracy: 0.9690 - loss: 0.1374 - route_loss: 0.3426 - val_accuracy: 0.9664 - val_loss: 0.1789 - val_route_loss: 0.3794 - learning_rate: 1.0000e-05
+Epoch 4/18
+306/306 - 232s - 758ms/step - accuracy: 0.9753 - loss: 0.1170 - route_loss: 0.2823 - val_accuracy: 0.9676 - val_loss: 0.1631 - val_route_loss: 0.3310 - learning_rate: 1.0000e-05
+Epoch 5/18
+306/306 - 232s - 759ms/step - accuracy: 0.9853 - loss: 0.0922 - route_loss: 0.2180 - val_accuracy: 0.9722 - val_loss: 0.1500 - val_route_loss: 0.3020 - learning_rate: 1.0000e-05
+Epoch 6/18
+306/306 - 233s - 760ms/step - accuracy: 0.9814 - loss: 0.0921 - route_loss: 0.2221 - val_accuracy: 0.9780 - val_loss: 0.1309 - val_route_loss: 0.2913 - learning_rate: 1.0000e-05
+Epoch 7/18
+306/306 - 232s - 758ms/step - accuracy: 0.9904 - loss: 0.0647 - route_loss: 0.1533 - val_accuracy: 0.9803 - val_loss: 0.1280 - val_route_loss: 0.2776 - learning_rate: 1.0000e-05
+Epoch 8/18
+306/306 - 232s - 759ms/step - accuracy: 0.9882 - loss: 0.0842 - route_loss: 0.2434 - val_accuracy: 0.9757 - val_loss: 0.1445 - val_route_loss: 0.3214 - learning_rate: 1.0000e-05
+Epoch 9/18
+306/306 - 232s - 757ms/step - accuracy: 0.9898 - loss: 0.0637 - route_loss: 0.1609 - val_accuracy: 0.9757 - val_loss: 0.1386 - val_route_loss: 0.3205 - learning_rate: 1.0000e-05
+Epoch 10/18
+306/306 - 232s - 759ms/step - accuracy: 0.9914 - loss: 0.0582 - route_loss: 0.1528 - val_accuracy: 0.9757 - val_loss: 0.1427 - val_route_loss: 0.2546 - learning_rate: 1.0000e-05
+Epoch 11/18
+306/306 - 232s - 757ms/step - accuracy: 0.9929 - loss: 0.0446 - route_loss: 0.0977 - val_accuracy: 0.9803 - val_loss: 0.1371 - val_route_loss: 0.3406 - learning_rate: 5.0000e-06
+Epoch 12/18
+306/306 - 233s - 762ms/step - accuracy: 0.9943 - loss: 0.0400 - route_loss: 0.0991 - val_accuracy: 0.9826 - val_loss: 0.1205 - val_route_loss: 0.2801 - learning_rate: 5.0000e-06
+Epoch 13/18
+306/306 - 233s - 760ms/step - accuracy: 0.9945 - loss: 0.0322 - route_loss: 0.0617 - val_accuracy: 0.9792 - val_loss: 0.1241 - val_route_loss: 0.3158 - learning_rate: 5.0000e-06
+Epoch 14/18
+306/306 - 232s - 758ms/step - accuracy: 0.9951 - loss: 0.0357 - route_loss: 0.0842 - val_accuracy: 0.9803 - val_loss: 0.1359 - val_route_loss: 0.3563 - learning_rate: 5.0000e-06
+Epoch 15/18
+306/306 - 232s - 758ms/step - accuracy: 0.9957 - loss: 0.0302 - route_loss: 0.0606 - val_accuracy: 0.9803 - val_loss: 0.1538 - val_route_loss: 0.4325 - learning_rate: 5.0000e-06
+Epoch 16/18
+306/306 - 232s - 757ms/step - accuracy: 0.9965 - loss: 0.0339 - route_loss: 0.0778 - val_accuracy: 0.9826 - val_loss: 0.1402 - val_route_loss: 0.3881 - learning_rate: 2.5000e-06
+Epoch 17/18
+306/306 - 233s - 761ms/step - accuracy: 0.9961 - loss: 0.0249 - route_loss: 0.0413 - val_accuracy: 0.9815 - val_loss: 0.1193 - val_route_loss: 0.2606 - learning_rate: 2.5000e-06
+Epoch 18/18
+306/306 - 233s - 762ms/step - accuracy: 0.9961 - loss: 0.0282 - route_loss: 0.0559 - val_accuracy: 0.9838 - val_loss: 0.1192 - val_route_loss: 0.2935 - learning_rate: 2.5000e-06
+
+Fold 1 [rrf_full@v2_vitfix/image] results: CNN=0.9222  ViT=0.9840  Fused=0.9840 (23.58 ms/img)  Fused+TTA=0.9868 (103.71 ms/img)  train_time=4754.1s (stage1=464.2s, stage2=4290.0s)
+  ECE=0.0205  NLL=0.0652  entropy=0.0910  beta_mean=0.107  branches_disagree=99/1440  route_acc=0.9495
+
+-- Fused+TTA classification report --
+              precision    recall  f1-score   support
+
+      glioma       0.99      0.98      0.99       360
+  meningioma       0.98      0.98      0.98       360
+     notumor       0.99      1.00      0.99       360
+   pituitary       0.99      0.99      0.99       360
+
+    accuracy                           0.99      1440
+   macro avg       0.99      0.99      0.99      1440
+weighted avg       0.99      0.99      0.99      1440
+
+[[352   5   3   0]
+ [  2 352   2   4]
+ [  0   0 359   1]
+ [  0   2   0 358]]
+
+======================================================================
+SUMMARY -- rrf_full@v2_vitfix / image (1 folds this session)
+======================================================================
+CNN branch              : 92.22% +/- 0.00%   (folds: ['92.22'])
+ViT branch              : 98.40% +/- 0.00%   (folds: ['98.40'])
+RRF fused               : 98.40% +/- 0.00%   (folds: ['98.40'])
+RRF fused + TTA         : 98.68% +/- 0.00%   (folds: ['98.68'])
+
+Rows appended to /kaggle/working/rrf_fusion.jsonl -- download it and keep the raw per-fold rows for the mean/std and the Wilcoxon tests.
