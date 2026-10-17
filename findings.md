@@ -4,8 +4,8 @@ Running record of verified experimental results, their provenance, and open
 issues. Append to this rather than rewriting it; keep the provenance line on
 every claim so anything here can be re-checked later.
 
-Last updated: 2026-10-17 (RRF-Net run #2 fold 1 — ViT trains, but the
-whole encoder trained instead of 4 blocks; v3 fix applied)
+Last updated: 2026-10-17 (RRF-Net run #3 fold 1 — v3 fix verified on the
+real keras_hub ViT; fusion mechanism works; 5-fold run is the next step)
 
 ---
 
@@ -289,6 +289,84 @@ Keep `rrf_fusion_v2.log` and its JSONL row either way: whichever arm wins, the
 other is a legitimate ablation row (full ViT fine-tune vs last-4-blocks), and
 v1 remains the frozen-ViT row. Three points on the ViT-capacity axis is a
 table nobody else on this dataset has published.
+
+---
+
+## 2d. RRF-Net run #3 (`rrf_full@v3_vit4`, fold 1) — the fix holds and the fusion works
+
+Provenance: `rrf_fusion_v3.log`, Kaggle T4, fold 1 of 5, 2796 s
+(stage1 452 + stage2 2345) — 41% faster than v2's 4754 s.
+
+```
+[vit] 138 weighted layers nested in 'vit_b16_kerashub'
+[vit] strategy=last-4-of-12-blocks  4 units trainable  (28,351,488 of 85,798,656 params, 33.0%)
+```
+
+Gate 1 passes on the real model: 12 blocks located, last 4 unfrozen, 33.0% —
+against 32.8% predicted on the stub. The dump also settles why the structural
+search was necessary: blocks are `tranformer_block_1 … _12` (keras_hub's own
+typo, 1-indexed) and their children are `ln_1`, `ln_2`, `dense_1`, `dense_2`.
+Any rule grouping by digits in layer names would key on those, not the block
+index.
+
+### Three arms on the identical fold
+
+| | CNN br. | ViT br. | Fused | Fused+TTA | ECE | NLL | β̄ | route_acc | fusion gain |
+|---|---|---|---|---|---|---|---|---|---|
+| v1 frozen ViT | 93.89 | 90.35 | 95.28 | 97.57 | 0.0523 | 0.1667 | 0.757 | 0.704 | **+1.39** |
+| v2 all 12 blocks | 92.22 | 98.40 | 98.40 | **98.68** | 0.0205 | 0.0652 | 0.107 | 0.9495 | **+0.00** |
+| **v3 last 4 blocks** | 92.15 | 96.67 | 97.08 | 98.26 | 0.0287 | 0.1017 | **0.413** | 0.7327 | **+0.41** |
+
+"fusion gain" = Fused − max(CNN branch, ViT branch).
+
+Monotone in ViT capacity: as the ViT strengthens, β̄ shifts off the CNN and the
+fusion contributes less. v3 is the only arm that is simultaneously accurate and
+an actual fusion model — β̄ mid-range, and a `route_acc` that a
+constant-output router could not have produced (v2's 0.9495 could).
+
+### Correction to the §2c gate 3 comparison
+
+Gate 3 was specified as "Fused+TTA ≥ 98.37", step6's ResNet50 **five-fold
+mean**. That is the wrong comparison for a single fold, and fold 1 is step6's
+easiest fold for all four backbones. Per-fold TTA, same fold:
+
+| model | fold 1 | 5-fold mean | folds 2–5 |
+|---|---|---|---|
+| resnet50 | **98.75** | 98.37 | 98.12 98.54 98.26 98.19 |
+| RRF v2 all-12 | 98.68 | — | — |
+| densenet121 | 98.54 | 98.32 | 98.26 97.92 98.40 98.47 |
+| **RRF v3 last-4** | **98.26** | — | — |
+| mobilenetv2 | 97.78 | 97.96 | 98.47 97.50 98.06 97.99 |
+| efficientnetb0 | 97.64 | 97.75 | 97.50 97.57 98.19 97.85 |
+| RRF v1 frozen | 97.57 | — | — |
+
+So v2's 98.68 did **not** clear step6's best; on the shared fold ResNet50 is
+98.75. v3 at 98.26 beats mobilenetv2 (+0.48) and efficientnetb0 (+0.62), loses
+to densenet121 (−0.28) and resnet50 (−0.49). Nothing is settled on one fold:
+resnet50 falls to 98.12–98.54 on folds 2–5, so the mean comparison is open.
+
+### The ~92% CNN branch is not a backbone failure
+
+CNN branch accuracy is ~92–94 in all three arms, far below step6's
+efficientnetb0 (97.64 on this fold). This is mostly wiring, not a broken
+backbone: the branch heads read the **256-d projected, LayerNormed** tokens at
+`W_AUX = 0.3` for 18 epochs, while step6's head reads full 1280-d pooled
+features at full loss weight for `FINE_TUNE_EPOCHS = 35`. Treat the branch
+accuracies as router diagnostics, not single-backbone baselines. Raising
+`W_AUX`, widening the branch heads, or matching step6's 35 epochs are the
+levers if the gate needs a stronger CNN input — none of them tested yet.
+
+### Decision: run v3 to five folds
+
+v3 is the arm to spend the budget on. It is the only configuration where the
+architecture does what the paper would claim for it, the cost is ~3.9 h for
+four more folds, and a Wilcoxon against step6 needs five paired folds
+regardless. v2 and v1 become the two other points on the ViT-capacity axis —
+an ablation neither competing paper has published.
+
+Under the leakage-delta headline chosen for the paper, RRF-Net does not have to
+beat resnet50. It has to be a defensible entry in the grid with a fusion
+mechanism that demonstrably works. v3 fold 1 is that; v2 was not.
 
 ---
 

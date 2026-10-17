@@ -109,9 +109,9 @@ PAIRS_CSV = "/kaggle/working/results/eda_a_near_duplicates.csv"
 IMG_SIZE = 224
 BATCH_SIZE = 16
 N_FOLDS = 5
-FOLDS_TO_RUN = [1]                 # probe first: check the [vit] line and the
-                                   # four §2c gates, then set [1,2,3,4,5] --
-                                   # fold 1 is already in the JSONL and skipped
+FOLDS_TO_RUN = [1, 2, 3, 4, 5]     # fold 1 done under rrf_full@v3_vit4 and
+                                   # skipped automatically if its JSONL row is
+                                   # present; folds 2-5 are ~3.9 h total
 SEED = 42
 
 HEAD_EPOCHS = 5                     # stage 1: both backbones frozen
