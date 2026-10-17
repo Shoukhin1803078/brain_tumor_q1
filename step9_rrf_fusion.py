@@ -132,6 +132,13 @@ W_ROUTE = 0.2                       # N3: supervised routing loss
 TTA_ROUNDS = 5
 ECE_BINS = 15
 
+# Save per-sample test probabilities per fold. Without these the logs can only
+# report scalar ECE/NLL -- reliability diagrams, ROC/PR curves, macro-AUC and
+# bootstrap CIs all need the raw probabilities, and re-running a fold to get
+# them costs ~45 min. The arrays are ~1440x4 floats per fold, i.e. tiny.
+SAVE_PROBS = True
+PROBS_DIR = "/kaggle/working/probs"
+
 # Ablation switches -- flip these to produce the ablation table.
 USE_SPATIAL_ROUTING = True          # N2; False -> single global gate
 USE_RELIABILITY_ROUTING = True      # N1; False -> router sees features only
@@ -977,6 +984,15 @@ def main():
             "branches_disagree": int(disagree.sum()),
             "route_acc": route_acc,
         })
+
+        if SAVE_PROBS:
+            os.makedirs(PROBS_DIR, exist_ok=True)
+            np.savez_compressed(
+                os.path.join(PROBS_DIR,
+                             f"{variant_tag().replace('@', '_')}_{SPLIT_MODE}"
+                             f"_fold{fold}.npz"),
+                y_true=y_test, p_fused=p_fused, p_cnn=p_cnn, p_vit=p_vit,
+                p_tta=p_tta, beta=beta, test_idx=test_idx)
 
         del model, core
         keras.backend.clear_session()

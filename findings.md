@@ -4,8 +4,8 @@ Running record of verified experimental results, their provenance, and open
 issues. Append to this rather than rewriting it; keep the provenance line on
 every claim so anything here can be re-checked later.
 
-Last updated: 2026-10-17 (RRF-Net run #3 fold 1 — v3 fix verified on the
-real keras_hub ViT; fusion mechanism works; 5-fold run is the next step)
+Last updated: 2026-10-17 (figure pipeline added: step10 full grid,
+step11 approach-focused ablation ladder)
 
 ---
 
@@ -294,6 +294,9 @@ table nobody else on this dataset has published.
 
 ## 2d. RRF-Net run #3 (`rrf_full@v3_vit4`, fold 1) — the fix holds and the fusion works
 
+> Superseded by §2e, which has all five folds. Kept for the gate-3 correction
+> and the ViT-capacity comparison, both still accurate.
+
 Provenance: `rrf_fusion_v3.log`, Kaggle T4, fold 1 of 5, 2796 s
 (stage1 452 + stage2 2345) — 41% faster than v2's 4754 s.
 
@@ -367,6 +370,93 @@ an ablation neither competing paper has published.
 Under the leakage-delta headline chosen for the paper, RRF-Net does not have to
 beat resnet50. It has to be a defensible entry in the grid with a fusion
 mechanism that demonstrably works. v3 fold 1 is that; v2 was not.
+
+---
+
+## 2e. RRF-Net v3 — COMPLETE, 5/5 folds. First valid RRF-Net result.
+
+Provenance: `rrf_fusion_v3.log` (514 lines, folds 1–5), `variant=rrf_full@v3_vit4`,
+`split_mode=image`, Kaggle T4. 2766 s/fold, 3.84 h total. ViT fine-tuning
+verified at `last-4-of-12-blocks, 28,351,488 of 85,798,656 params (33.0%)` on
+every fold.
+
+| | mean ± std | per fold |
+|---|---|---|
+| CNN branch | 92.67 ± 0.88 | 92.15 92.85 91.87 92.15 94.31 |
+| ViT branch | 96.14 ± 0.54 | 96.67 95.14 96.18 96.18 96.53 |
+| RRF fused | 97.04 ± 0.28 | 97.08 97.01 96.53 97.22 97.36 |
+| **RRF fused + TTA** | **98.11 ± 0.17** | 98.26 97.99 97.85 98.12 98.33 |
+| ECE | 0.0312 ± 0.0034 | — |
+| NLL | 0.1058 ± 0.0060 | — |
+| β̄ | 0.374 ± 0.026 | 0.413 0.360 0.398 0.345 0.356 |
+| route_acc | 0.735 ± 0.061 | 0.733 0.681 0.804 0.802 0.654 |
+| branches disagree | 102/1440 | 101 113 112 106 78 |
+
+### The fusion mechanism works, and better than fold 1 suggested
+
+`Fused − max(CNN branch, ViT branch)` = **+0.41 +1.87 +0.35 +1.04 +0.83**,
+mean **+0.90 pp, 5/5 folds, p = 0.031** (exact one-sided Wilcoxon). Fold 1
+alone understated this: the full-fold mean is more than double its +0.41.
+
+For scale, Mahmud et al.'s entire fusion stack is worth **+0.64 over ViT alone**
+(their Table 11). RRF-Net's is **+0.90 over the better branch on every fold**,
+which is the stricter baseline — beating the best branch post hoc is harder
+than beating one fixed branch.
+
+Supporting evidence that the router is real, not decorative:
+
+- β̄ = 0.374 ± 0.026 — stable and mid-range on all five folds. It never
+  collapses to a branch, unlike v1 (0.757) and v2 (0.107).
+- route_acc = 0.735 ± 0.061, above the 0.5 chance line on all five,
+  p = 0.031. Unlike v2's 0.9495, this cannot be produced by a constant router.
+- TTA uplift +1.07 pp, 5/5, p = 0.031.
+
+### Against step6, same folds, paired exact one-sided Wilcoxon
+
+| baseline | mean | Δ to RRF | folds baseline wins | p(base>RRF) | verdict |
+|---|---|---|---|---|---|
+| resnet50 | 98.37 | −0.26 | 4/5 | 0.094 | **no significant difference** |
+| densenet121 | 98.32 | −0.21 | 5/5 | 0.031 | baseline better, significant |
+| mobilenetv2 | 97.96 | +0.15 | 1/5 | 0.844 | no significant difference |
+| efficientnetb0 | 97.75 | +0.36 | 1/5 | 0.969 | no significant difference (p(RRF>base)=0.062) |
+
+Read this honestly: **RRF-Net is statistically indistinguishable from the best
+CNN baseline (resnet50), while costing far more.** It is significantly behind
+densenet121 and nominally ahead of the two weaker backbones.
+
+A caveat on that one "significant" row: with n = 5, the exact one-sided
+signed-rank test has a minimum attainable p of 1/32 = 0.031, reached by any
+5/5 sweep regardless of effect size. The densenet121 result is a 0.21 pp gap
+that happened to be consistent, not a large one. Five folds cannot separate
+models this close; do not over-read either direction.
+
+### What RRF-Net does win on: stability
+
+| model | mean | std |
+|---|---|---|
+| resnet50 | 98.37 | 0.237 |
+| densenet121 | 98.32 | 0.219 |
+| **RRF v3** | **98.11** | **0.175** |
+| efficientnetb0 | 97.75 | 0.249 |
+| mobilenetv2 | 97.96 | 0.321 |
+
+Lowest fold-to-fold variance of anything measured on this benchmark. Worth a
+sentence in the paper but not a headline — n = 5 makes variance estimates soft.
+
+### Calibration is the unexploited opportunity
+
+ECE 0.0312 with **no temperature scaling and no MC dropout**, both of which the
+design anticipates and neither of which is implemented. Mahmud reports exactly
+0.031 → 0.017 from adding MC dropout. Both are post-hoc on saved logits, cost
+almost no GPU time, and land squarely on this project's "evaluation
+reliability" framing. This is the cheapest remaining win in the whole project.
+
+### Standing of the three arms
+
+v3 is the result. v1 (ViT frozen, 97.57 fold 1) and v2 (ViT fully fine-tuned,
+98.68 fold 1) are single-fold points on the ViT-capacity axis and should be
+reported as such — a capacity ablation neither competing paper published — not
+as alternative headline numbers.
 
 ---
 
@@ -477,3 +567,87 @@ confirmed-pair count, then `build_groups_from_pairs()` → `SPLIT_MODE="group"`.
 - `step1` uses `TTA_ROUNDS = 8` while every later script uses 5. Harmless —
   step1's numbers are not in the paper — but it means step1 is not quite the
   identical-protocol baseline its name implies.
+---
+
+## 6. Figures
+
+`step10_paper_figures.py` — one self-contained file, every value hardcoded in a
+`DATA` block at the top. No logs, no dataset, no GPU, no network. Output goes
+to `images/paper/`.
+
+    python3 step10_paper_figures.py            # all available figures
+    python3 step10_paper_figures.py --list
+    python3 step10_paper_figures.py --only cv
+
+Organised after the two comparison papers so the figure set reads as familiar
+to reviewers of either.
+
+### From Mahmud et al. 2026
+
+| theirs | ours | |
+|---|---|---|
+| Fig 10/11 confusion matrix | `fig01` | ✅ |
+| Fig 12 train/val curves | `fig02` | ✅ (+ routing-loss panel) |
+| Fig 13 "Histogram of Model Accuracies" | `fig03` | ✅ |
+| Table 11 ablation | `fig04` | ✅ |
+| Table 6 per-class | `fig05` | ✅ |
+| Table 10 efficiency | `fig06` | ✅ |
+| Fig 8/9 ROC + per-class AUC | `fig07` | needs `probs/` |
+| Fig 18 reliability diagrams | `fig08` | needs `probs/` |
+| Fig 19 uncertainty distributions | `fig09` | needs `probs/` |
+| Fig 20 coverage-risk | `fig10` | needs `probs/` |
+
+### From Jayaraman et al. 2025 (CAFNet), where Mahmud has no equivalent
+
+| theirs | ours | |
+|---|---|---|
+| Fig 17 train vs test + trendline | `fig11` | ✅ |
+| Fig 16 train/val curves + test reference line | `fig12` | ✅ |
+| Fig 11 5-fold CV accuracy | `fig13` | ✅ |
+| Fig 14/15 per-model train/val accuracy and loss | `fig14` | ✅ |
+| Fig 2/3 dataset class distribution | `fig15` | ✅ |
+
+### What is deliberately absent, and why
+
+**CAFNet Figs 5–8** — image width and height histograms, the width-height
+scatter, the pixel-intensity distribution. `eda/results/eda_a_summary.json`
+records only the min/max *ranges* (150–1375 px wide, 167–1446 px high), not the
+distributions. Re-reading all 7,200 images would produce them; nothing in the
+current record can.
+
+**CAFNet Figs 9/10** — decision tree, naive Bayes and LDA baselines. This
+project never trained those classifiers.
+
+**Mahmud Figs 1–7, 14–17** — architecture diagrams, augmentation samples,
+Grad-CAM and LIME overlays. Images of the model or of MRI slices, not plots of
+results.
+
+**Mahmud Figs 8/9, 18, 19, 20** (= our `fig07`–`fig10`) — these need a
+predicted probability for *every individual test image*, and the logs only ever
+recorded scalars (accuracy, ECE, NLL). They are **not** hardcoded: inventing
+per-sample values would mean inventing the curves. The code for all four is
+written and tested; it is gated on `./probs/` and generates automatically once
+that folder exists.
+
+### `step9` now saves per-sample probabilities
+
+`SAVE_PROBS = True` writes `y_true`, `p_fused`, `p_cnn`, `p_vit`, `p_tta`,
+`beta`, `test_idx` per fold to `/kaggle/working/probs/`. Download into
+`./probs/` after the next run → `fig07`–`fig10` appear with no edit to the
+file. This also unlocks the macro-AUC Mahmud reports (0.9988) and a bootstrap
+CI on the headline accuracy, neither of which this project can currently quote.
+
+### The honesty constraint carried into `fig03` and `fig11`
+
+`fig03` labels the CNN-branch (92.67%) and ViT-branch (96.14%) bars as
+auxiliary heads inside the joint model, with a note under the title. They read
+a 256-d projected bottleneck at `W_AUX = 0.3`; EfficientNetB0 trained
+independently reaches **97.75%**. Mahmud's Fig 13 and CAFNet's Table 6 both
+place single-branch rows beside the full model with no such distinction, which
+is what makes a fusion gain look larger than it is — CAFNet reports MobileNetV2
+at 86.96% where the same backbone under this project's protocol reaches 97.96%.
+
+`fig11` carries the matching caveat for the train/test gap: train accuracy is
+the final fine-tuning epoch *without* TTA while test accuracy includes it, so
+EfficientNetB0 and MobileNetV2 show a negative gap. The same applies to
+CAFNet's Fig 17.
