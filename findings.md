@@ -4,7 +4,8 @@ Running record of verified experimental results, their provenance, and open
 issues. Append to this rather than rewriting it; keep the provenance line on
 every claim so anything here can be re-checked later.
 
-Last updated: 2026-10-16 (RRF-Net run #1 complete, 5/5 folds)
+Last updated: 2026-10-17 (RRF-Net run #2 fold 1 — ViT trains, but the
+whole encoder trained instead of 4 blocks; v3 fix applied)
 
 ---
 
@@ -132,7 +133,9 @@ lowest route_acc and the worst Fused+TTA (96.11) — consistent with a router
 mis-calibrated toward the CNN. Re-check after the fixed run; if route_acc stays
 flat near 0.5 once the ViT is genuinely trained, raise `W_ROUTE` from 0.2.
 
-### Fix applied (`RUN_TAG = "v2_vitfix"`)
+### Fix applied (`RUN_TAG = "v2_vitfix"`) — partial; superseded by §2b
+
+> This fix made the ViT train, but not the configured 4 blocks. See §2b.
 
 - `_iter_sublayers()` walks nested sub-models recursively.
 - Unfreezing counts only layers that own weights, and **raises** if the
@@ -146,6 +149,146 @@ Regression-tested: all five ablation variants build and train, and the loss
 trajectories are **bit-identical** to the pre-patch run (`no cross-attention`:
 1.7130 → 1.2649, route_loss 0.1218, acc 0.875 both times), confirming the patch
 touched only freezing and tagging, not the model graph.
+
+---
+
+## 2b. RRF-Net run #2 (`rrf_full@v2_vitfix`, fold 1 only) — ViT alive, but the wrong ViT
+
+Provenance: `rrf_fusion_v2.log` (102 lines, fold 1 of 5), Kaggle T4.
+Config as §2 plus `RUN_TAG = "v2_vitfix"`, `FOLDS_TO_RUN = [1]`.
+
+| metric | run #1 fold 1 (ViT frozen) | run #2 fold 1 | step6 best (5-fold mean) |
+|---|---|---|---|
+| CNN branch | 93.89 | **92.22** | — |
+| ViT branch | 90.35 | **98.40** | — |
+| Fused | 95.28 | **98.40** | — |
+| Fused + TTA | 97.57 | **98.68** | ResNet50 98.37 |
+| ECE | 0.0523 | **0.0205** | — |
+| NLL | 0.1667 | **0.0652** | — |
+| mean entropy | — | 0.0910 | — |
+| β̄ (gate weight on CNN) | 0.757 | **0.107** | — |
+| route_acc | 0.704 | 0.9495 | — |
+| branches disagree | 125/1440 | 99/1440 | — |
+| train time | 2130 s | **4754 s** (stage1 464 + stage2 4290) | — |
+
+The §2 diagnosis is confirmed outright: unfreezing the ViT moved its branch
+from 90.35% to 98.40% on the identical fold. The frozen-ViT reading of run #1
+was correct.
+
+### But the fine-tune was not the configured one
+
+```
+[vit] 3 weighted layers nested in 'vit_b16_kerashub':
+    vi_t_backbone / vit_patching_and_embedding / vit_encoder
+[vit] strategy=tail-fraction  1/3 weighted layers trainable  (85,056,000 params)
+```
+
+`VIT_FINE_TUNE_BLOCKS = 4` was set; **all 12 blocks trained.** keras_hub's
+`ViTEncoder` is a plain `Layer` that keeps its blocks in a list attribute and
+exposes no `.layers`, so the v2 recursive walk stopped at the encoder and saw
+three containers, not 38 blocks. `tail-fraction` then unfroze "the last 1 of 3"
+— the entire 85M-parameter encoder. The diagnostic line reported this as
+*1/3 layers trainable*, which is why it read as conservative.
+
+So run #2 is a valid **full-ViT-fine-tune** data point, not the configured
+last-4-blocks one. Label it that way; do not present it as `VIT_FINE_TUNE_BLOCKS = 4`.
+
+### The fusion contributes nothing in this configuration
+
+`Fused = 0.9840` and `ViT = 0.9840` — identical to four decimal places, with
+`β̄ = 0.107` (the gate assigns the CNN 11% weight). The model is a ViT with a
+decorative CNN attached. `route_acc = 0.9495` looks strong but is not
+evidence of good routing: a router that always answers "ViT" scores ~0.95 when
+the ViT is right 98% of the time.
+
+This matters more than the headline. Mahmud's whole fusion stack is worth
+**+0.64 over ViT alone** (Table 11: 97.46 → 98.10). The equivalent number here
+is **+0.00**, and the +0.28 from 98.40 to 98.68 is TTA, not fusion. An ablation
+table built on this configuration would show the contribution of every novel
+component (N1/N2/N3) as approximately zero.
+
+Root cause is the branch asymmetry, not the routing code: the CNN branch at
+92.22% is 5.5 pp below step6's EfficientNetB0 (97.75% TTA) on the same data.
+With β̄ = 0.107 almost no gradient reaches the CNN through the fused path, so
+it is trained mainly by the `W_AUX = 0.3` auxiliary head — and the weaker it
+gets, the less the gate uses it. Run #1 had the mirror image of this with the
+roles reversed (β̄ = 0.757 toward the CNN).
+
+### Fix applied (`RUN_TAG = f"v3_vit{VIT_FINE_TUNE_BLOCKS}"`)
+
+Validated by `step9_validate_vit_unfreeze.py` (committed, runs on CPU in
+~2 min with no GPU and no downloads) against a stub reproducing the
+real nesting (a `Model` backbone containing a plain-`Layer` encoder holding
+blocks in a list attribute); that stub reproduces the v2 log's "3 weighted
+layers" exactly before the fix.
+
+- `_iter_sublayers()` falls back to scanning instance attributes (Layer,
+  list/tuple/dict of Layers) when `.layers` is empty, with cycle protection.
+  Walk now finds 101 weighted layers instead of 3.
+- New `find_transformer_blocks()` locates the block stack **structurally** —
+  the longest run of same-class weighted siblings under one parent — instead
+  of by regex on layer names. Name matching caused both the v1 and v2 failures
+  and differs across keras_hub versions.
+- Parameter counts now come from `vit_model.trainable_weights`, which Keras
+  de-duplicates; the old per-layer sum double-counted a trainable parent and
+  its children (reported 91.8% for a 4-block unfreeze in testing).
+- Diagnostic prints trainable params **as a percentage of the ViT**, the
+  figure that would have made the v2 bug obvious at a glance.
+- Two new guards raise rather than train silently: fewer blocks found than
+  requested, and a partial unfreeze exceeding 60% of the model.
+- `VIT_FINE_TUNE_BLOCKS` accepts `"all"` for a deliberate full fine-tune.
+- `RUN_TAG` now interpolates the setting, so `v3_vit4` and `v3_vitall` rows
+  cannot collide in the JSONL.
+
+Verified: last-4-of-12 → 11,817,984 / 36,046,080 params (32.8%), blocks 8–11;
+`"all"` → 100%; both guards fire when their conditions are simulated.
+
+---
+
+## 2c. Decision: which ViT configuration gets the 5-fold budget
+
+Two arms are now on the table. Fold 1 is the cheap discriminator, and one arm
+is already measured for free.
+
+| arm | tag | ViT trainable | fold-1 Fused+TTA | fusion worth |
+|---|---|---|---|---|
+| frozen ViT | `rrf_full` (v1) | 0 | 97.57 | +1.39 over best branch |
+| full encoder | `rrf_full@v2_vitfix` | 85.1M (100%) | **98.68** | **+0.00** |
+| last 4 blocks | `rrf_full@v3_vit4` | 11.8M (32.8%) | **not yet run** | ? |
+
+Neither measured arm is usable as the headline: v1's ViT never trained, and
+v2's fusion is inert. The 4-block arm is the one configuration where both
+branches could plausibly be strong enough to make routing do work — the ViT
+constrained enough not to swamp the CNN, the CNN therefore still receiving
+gradient through the fused path.
+
+**Probe:** `FOLDS_TO_RUN = [1]`, `VIT_FINE_TUNE_BLOCKS = 4` → tag
+`rrf_full@v3_vit4`. Expect ~45 min (stage 2 trains 11.8M rather than 85M
+params, against v2's 4290 s).
+
+**Decision rule, checked against v2 fold 1:**
+
+1. `[vit] strategy=last-4-of-12-blocks  4 units trainable (11,817,984 … 32.8%)`
+   — if the strategy or the percentage differs, stop; the structural block
+   search did not match the installed keras_hub.
+2. `Fused > max(CNN, ViT)` by ≥ 0.3 pp. This is the one thing v2 failed and
+   the whole justification for the architecture. If it fails here too, the
+   problem is branch asymmetry, not the ViT depth — raise `W_AUX` from 0.3
+   before spending five folds.
+3. `Fused+TTA ≥ 98.37` (step6's ResNet50 mean, the bar to beat).
+4. `β̄` in roughly 0.25–0.75. Outside that the gate has collapsed to one branch
+   again and `route_acc` is uninformative.
+
+If 2 and 3 both hold → run folds 2–5 under `v3_vit4` (fold 1 is already in the
+JSONL and will be skipped). If 3 holds but 2 fails → the honest paper claim is
+"a strong ViT fine-tune", not a fusion contribution; keep v2's full-encoder arm
+as the headline and report the fusion ablation as negative. If neither holds →
+`W_AUX` and branch balance come first, before any more 5-fold runs.
+
+Keep `rrf_fusion_v2.log` and its JSONL row either way: whichever arm wins, the
+other is a legitimate ablation row (full ViT fine-tune vs last-4-blocks), and
+v1 remains the frozen-ViT row. Three points on the ViT-capacity axis is a
+table nobody else on this dataset has published.
 
 ---
 
